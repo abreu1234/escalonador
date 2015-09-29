@@ -12,12 +12,14 @@ class Processo{
 	private $n_cpu_bursts;
 	private $n_io_bursts;
 	private $time_in_cpu;
+	private $tempo_espera;
 
 	public function __construct( $id, $n_cpu_bursts, $n_io_bursts ) {
 		$this->time_blocked = 0;
 		$this->status = 'READY';
 		$this->fila = FILA_PADRAO;
         $this->quantum = constant( FILA_PADRAO );
+        $this->tempo_espera = 0;
         $this->time_in_cpu = 0;
 		$this->id = $id;
 		$this->n_cpu_bursts = $n_cpu_bursts;
@@ -70,5 +72,13 @@ class Processo{
 
     public function decrementa_n_cpu_bursts() {
         $this->n_cpu_bursts--;
+    }
+
+    public function incrementa_tempo_espera( $valor ) {
+    	$this->tempo_espera += $valor;
+    }
+
+    public function get_tempo_espera() {
+    	return $this->tempo_espera;
     }
 }
