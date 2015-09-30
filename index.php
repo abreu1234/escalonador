@@ -29,6 +29,7 @@ class Sistema {
 
 		$this->init();
 		$this->escalonador();
+		$this->mostra_tempo();
 	}
 
 	/**
@@ -132,6 +133,10 @@ class Sistema {
 		else 
 			$tipo = 'new';
 
+		//Reseta os contadores do processo e seta o quantum da nova fila
+		$processo->set_quantum( constant( $fila_novo ) );
+		$this->processos[ $processo->get_id() ]['cpu_burst_ant'] = 0;
+		$this->processos[ $processo->get_id() ]['tempo_espera'] = 0;
 		//Adiciona na lista de fila
 		$processo->set_fila( $fila_novo );
 		$this->set_fila( $processo, $tipo );
@@ -234,10 +239,10 @@ class Sistema {
 		//Verifica as filas que contém processos por prioridade
 		if( count( $this->filas['RR-10'] ) > 0 )
 				$fila = 'RR-10';
-			elseif( count( $this->filas['RR-20'] ) > 0 )
-				$fila = 'RR-20';
-			else
-				$fila = 'FIFO';
+		elseif( count( $this->filas['RR-20'] ) > 0 )
+			$fila = 'RR-20';
+		else
+			$fila = 'FIFO';
 
 		//Remove o processo da fila
 		$proc_na_cpu = array_shift( $this->filas[$fila] );
@@ -293,17 +298,32 @@ class Sistema {
 	}
 
 	/**
+	 * Mostra o tempo de todos os processos
+	 */
+	public function mostra_tempo() {
+
+		printf(QUEBRA."### INICIANDO DETALHES DOS PROCESSOS ###".QUEBRA.QUEBRA);
+
+		foreach( $this->processos as $processo ) {
+			$proc = $processo['processo'];
+			printf("Processo id: %d %dms na CPU, %dms de espera, ultima fila: %s".QUEBRA, 
+				$proc->get_id(), $proc->get_time_in_cpu(), $proc->get_tempo_espera(), $proc->get_fila()
+			);
+		}
+
+	}
+
+	/**
 	 * Simula o processador rodando o processo
 	 *
 	 * @param Processo $processo
 	 */
 	private function cpu( Processo $processo ) {	
 		printf('Tempo %d: Escolheu processo id: %d da fila %s'.QUEBRA, $this->time, $processo->get_id(), $processo->get_fila());
-
+		
 		$this->troca_status( $processo, 'RUNNING' );
 		$quantum = ( $processo->get_fila() != 'FIFO' ) ? $processo->get_quantum() : $processo->get_n_cpu_bursts();
 		$quantum_i = 0;
-		$this->processos[ $processo->get_id() ]['tempo_espera'] = 0;
 
 		//Roda o processo enquanto ainda tiver creditos quantum e ainda estiver bursts no processo
 		while( $quantum_i < $quantum && $processo->get_n_cpu_bursts() > 0 ){
@@ -339,9 +359,10 @@ class Sistema {
 			else 
 				$this->finaliza_processo();
 			
-
 			$this->verifica_processos( $cpu_burst );
 			$total_procs = count( $this->status['READY'] );
+			$this->processos[ $this->proc_na_cpu['processo']->get_id() ]['tempo_espera'] = 0;
+			
 		}
 
 	}
