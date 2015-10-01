@@ -37,8 +37,8 @@ class Sistema {
 	 */
 	private function init() {
 		printf("### INICIANDO PROCESSOS ###".QUEBRA.QUEBRA);
-		$this->novo_processo(50);
-		$this->novo_processo(122);
+		$this->novo_processo(50, 10, 21, 11, 5);
+		$this->novo_processo(20, 5, 15, 2, 5);
 		$this->novo_processo(120);
 		$this->novo_processo(190);
 	}
@@ -80,6 +80,17 @@ class Sistema {
 	 * @param String $status_novo
 	 */
 	public function troca_status( Processo $processo, $status_novo ) {
+
+		if( $status_novo == 'BLOCK' ) {
+			printf( 'Tempo %d: Processo id: %d foi bloqueado'.QUEBRA, $this->time, $processo->get_id() );
+			unset( $this->filas[ $processo->get_fila() ][ $processo->get_id() ] );
+
+		}elseif( $processo->get_status() === 'BLOCK' && $status_novo === 'READY' ) {
+			printf( 'Tempo %d: Processo id: %d passou %dms bloqueado'.QUEBRA, 
+				$this->time, $processo->get_id(), $processo->get_time_blocked() 
+			);
+			$this->set_fila( $processo );
+		}
 
 		$status_ant = $processo->get_status();
 		//Remove da lista de status
@@ -174,8 +185,7 @@ class Sistema {
 	/**
 	 * Cria um novo processo e adiciona ao array de processos
 	 *
-	 * @param int $n_cpu_bursts
-	 * @param int $n_io_bursts
+	 * @param int $bursts 
 	 * @return Processo retorna o objeto do processo criado
 	 */
 	public function novo_processo( ... $bursts ) {
@@ -207,27 +217,28 @@ class Sistema {
 	 */
 	private function verifica_processos( $cpu_burst ) {
 
-		$tam = count( $this->status, 1 ) - count( $this->status );
-		foreach( $this->status as $status => $procs ) {
+		foreach( $this->processos as $proc ) {
+			$proc = $proc['processo'];
+			if( $proc->get_status() === 'READY' ) {
+				//Incrementa o tempo de espera atual e do processo
+				$this->processos[ $proc->get_id() ]['tempo_espera'] += $cpu_burst;
+				$proc->incrementa_tempo_espera( $cpu_burst );
 
-			foreach( $procs as $proc ) {
-
-				if( $proc->get_status() != 'FINISHED' ) {
-					//Incrementa o tempo de espera atual e do processo
-					$this->processos[ $proc->get_id() ]['tempo_espera'] += $cpu_burst;
-					$proc->incrementa_tempo_espera( $cpu_burst );
-
-					//Se tempo de espera atual for maior que o tempo maximo o processo é promovido
-					if( $this->processos[ $proc->get_id() ]['tempo_espera'] >= TEMPO_ESPERA_MAX ) {
-						$this->promove_processo( $proc );
-						$this->processos[ $proc->get_id() ]['tempo_espera'] = 0;
-					}
-						
-
+				//Se tempo de espera atual for maior que o tempo maximo o processo é promovido
+				if( $this->processos[ $proc->get_id() ]['tempo_espera'] >= TEMPO_ESPERA_MAX ) {
+					$this->promove_processo( $proc );
+					$this->processos[ $proc->get_id() ]['tempo_espera'] = 0;
 				}
 
+			}else if( $proc->get_status() === 'BLOCK' ) {
+				//Se completou o io burst troca pra ready
+				if( $proc->get_n_io_burst() <= 0 ) {				
+					$this->troca_status( $proc, 'READY' );
+					$proc->prox_io_burst();
+				}else {
+					$proc->decrementa_n_io_burst( $cpu_burst );
+				}
 			}
-
 		}
 
 	}
@@ -290,18 +301,16 @@ class Sistema {
 			array_push( $this->filas[$fila], $this->proc_na_cpu['processo'] );
 
 		}
-
 		//Se quantum for 0 dar nova quantidade de quantum
 		if ( $this->proc_na_cpu['processo']->get_quantum() === 0 ) 
-			$this->proc_na_cpu['processo']->set_quantum(constant($this->proc_na_cpu['processo']->get_fila()));
-		
+			$this->proc_na_cpu['processo']->set_quantum(constant($this->proc_na_cpu['processo']->get_fila()));	
+
 	}
 
 	/**
 	 * Mostra o tempo de todos os processos
 	 */
 	public function mostra_tempo() {
-
 		printf(QUEBRA."### INICIANDO DETALHES DOS PROCESSOS ###".QUEBRA.QUEBRA);
 
 		foreach( $this->processos as $processo ) {
@@ -310,7 +319,6 @@ class Sistema {
 				$proc->get_id(), $proc->get_time_in_cpu(), $proc->get_tempo_espera(), $proc->get_fila()
 			);
 		}
-
 	}
 	
 	/**
@@ -322,15 +330,23 @@ class Sistema {
 		printf('Tempo %d: Escolheu processo id: %d da fila %s'.QUEBRA, $this->time, $processo->get_id(), $processo->get_fila());
 		
 		$this->troca_status( $processo, 'RUNNING' );
-		$quantum = ( $processo->get_fila() != 'FIFO' ) ? $processo->get_quantum() : $processo->get_n_cpu_bursts();
+		$quantum = ( $processo->get_fila() != 'FIFO' ) ? $processo->get_quantum() : $processo->get_n_cpu_burst();
 		$quantum_i = 0;
 
 		//Roda o processo enquanto ainda tiver creditos quantum e ainda estiver bursts no processo
-		while( $quantum_i < $quantum && $processo->get_n_cpu_bursts() > 0 ){
+		while( $quantum_i < $quantum && $processo->get_n_cpu_burst() > 0 ){
 			$this->time++;
 			$quantum_i++;
 			$processo->incrementa_time_in_cpu();
-			$processo->decrementa_n_cpu_bursts();
+			$processo->decrementa_n_cpu_burst();
+		}
+		//Se terminar o cpu burst pega o proximo 
+		if( $processo->get_n_cpu_burst() <= 0 ) {					
+			//caso tenha io burst bloqueia
+			if( $processo->get_n_io_burst() > 0 ) 
+				$this->troca_status( $processo, 'BLOCK' );
+
+			$processo->prox_cpu_burst();
 		}
 		
 		$processo->set_quantum( $quantum - $quantum_i );
@@ -353,11 +369,13 @@ class Sistema {
 			$proc_id = $this->proc_na_cpu['processo']->get_id();
 			$cpu_burst = $this->cpu( $this->proc_na_cpu['processo'] );
 
-			//Se o n_cpu_bursts for igual a 0 quer dizer que está finalizado
-			if( $this->proc_na_cpu['processo']->get_n_cpu_bursts() > 0 )
-				$this->processo_pronto( $cpu_burst );
-			else 
-				$this->finaliza_processo();
+			if(  $this->proc_na_cpu['processo']->get_status() != 'BLOCK' ) {
+				//Se o n_cpu_bursts for igual a 0 quer dizer que está finalizado
+				if( $this->proc_na_cpu['processo']->get_n_cpu_burst() > 0 )
+					$this->processo_pronto( $cpu_burst );
+				else
+					$this->finaliza_processo();
+			}
 			
 			$this->verifica_processos( $cpu_burst );
 			$total_procs = count( $this->status['READY'] );

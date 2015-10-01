@@ -9,8 +9,8 @@ class Processo{
 	private $status;
 	private $fila;
     private $quantum;
-	private $n_cpu_bursts;
-	private $n_io_bursts;
+	private $n_cpu_bursts = 0;
+	private $n_io_bursts = 0;
 	private $time_in_cpu;
 	private $tempo_espera;
 	private $bursts;
@@ -23,8 +23,8 @@ class Processo{
 		$this->fila = FILA_PADRAO;
         $this->tempo_espera = 0;
         $this->time_in_cpu = 0;
-		$this->n_cpu_bursts = 0;
-		$this->n_io_bursts = 0;
+        $this->prox_cpu_burst();
+        $this->prox_io_burst();
 		$this->set_quantum( constant( FILA_PADRAO ) );
 	}
 
@@ -52,7 +52,11 @@ class Processo{
         return $this->time_in_cpu;
     }
 
-    public function get_n_cpu_bursts() {
+    public function get_n_io_burst() {
+    	return $this->n_io_bursts;
+    }
+
+    public function get_n_cpu_burst() {
         return $this->n_cpu_bursts;
     }
 
@@ -62,19 +66,21 @@ class Processo{
 
     public function set_quantum( $valor ) {
         $this->quantum = $valor;
-		$this->prox_cpu_burst();
     }
 
     public function incrementa_time_in_cpu() {
         $this->time_in_cpu++;
     }
 
-    public function decrementa_n_io_bursts() {
-        $this->n_io_bursts--;
+    public function decrementa_n_cpu_burst() {
+        $this->n_cpu_bursts--;
     }
 
-    public function decrementa_n_cpu_bursts() {
-        $this->n_cpu_bursts--;
+    public function decrementa_n_io_burst( $valor ) {
+    	if( $this->status === 'BLOCK' )
+    		$this->time_blocked += $valor;
+
+        $this->n_io_bursts -= $valor;
     }
 
     public function incrementa_tempo_espera( $valor ) {
@@ -84,12 +90,20 @@ class Processo{
     public function get_tempo_espera() {
     	return $this->tempo_espera;
     }
+
+    public function get_time_blocked() {
+    	return $this->time_blocked;
+    }
 	
+	public function prox_io_burst() {
+		$this->time_blocked = 0;
+		if( $this->n_io_bursts <= 0 )
+			$this->n_io_bursts = ( !empty($this->bursts) ) ? array_shift( $this->bursts ) : 0;	
+	}
+
 	public function prox_cpu_burst() {
-		if( $this->n_cpu_bursts  === 0 )
+		if( $this->n_cpu_bursts <= 0 )
 			$this->n_cpu_bursts = ( !empty($this->bursts) ) ? array_shift( $this->bursts ) : 0;
-			
-		//echo ("ID: ".$this->id." cpu: ".$this->n_cpu_bursts."<br />");
 	}
 	
 }
