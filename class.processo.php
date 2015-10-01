@@ -13,17 +13,19 @@ class Processo{
 	private $n_io_bursts;
 	private $time_in_cpu;
 	private $tempo_espera;
+	private $bursts;
 
-	public function __construct( $id, $n_cpu_bursts, $n_io_bursts ) {
+	public function __construct( $id, array $bursts ) {
+		$this->bursts = $bursts;
+		$this->id = $id;
 		$this->time_blocked = 0;
 		$this->status = 'READY';
 		$this->fila = FILA_PADRAO;
-        $this->quantum = constant( FILA_PADRAO );
         $this->tempo_espera = 0;
         $this->time_in_cpu = 0;
-		$this->id = $id;
-		$this->n_cpu_bursts = $n_cpu_bursts;
-		$this->n_io_bursts = $n_io_bursts;
+		$this->n_cpu_bursts = 0;
+		$this->n_io_bursts = 0;
+		$this->set_quantum( constant( FILA_PADRAO ) );
 	}
 
 	public function get_id() {
@@ -60,6 +62,7 @@ class Processo{
 
     public function set_quantum( $valor ) {
         $this->quantum = $valor;
+		$this->prox_cpu_burst();
     }
 
     public function incrementa_time_in_cpu() {
@@ -81,4 +84,12 @@ class Processo{
     public function get_tempo_espera() {
     	return $this->tempo_espera;
     }
+	
+	public function prox_cpu_burst() {
+		if( $this->n_cpu_bursts  === 0 )
+			$this->n_cpu_bursts = ( !empty($this->bursts) ) ? array_shift( $this->bursts ) : 0;
+			
+		//echo ("ID: ".$this->id." cpu: ".$this->n_cpu_bursts."<br />");
+	}
+	
 }

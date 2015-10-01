@@ -37,10 +37,10 @@ class Sistema {
 	 */
 	private function init() {
 		printf("### INICIANDO PROCESSOS ###".QUEBRA.QUEBRA);
-		$this->novo_processo(50, 50);
-		$this->novo_processo(122, 50);
-		$this->novo_processo(120, 50);
-		$this->novo_processo(190, 50);
+		$this->novo_processo(50);
+		$this->novo_processo(122);
+		$this->novo_processo(120);
+		$this->novo_processo(190);
 	}
 
 	private function constants() {
@@ -178,7 +178,7 @@ class Sistema {
 	 * @param int $n_io_bursts
 	 * @return Processo retorna o objeto do processo criado
 	 */
-	public function novo_processo( $n_cpu_bursts, $n_io_bursts) {
+	public function novo_processo( ... $bursts ) {
 
 		$processos = $this->processos;
 		end($processos);
@@ -186,7 +186,7 @@ class Sistema {
 		$ultimo_id = ( !$ultimo_id ) ? 0 : $this->processos[$ultimo_id]['processo']->get_id();
 
 		$this->processos[ ++$ultimo_id ] = [
-			'processo' 			=> new Processo( $ultimo_id, $n_cpu_bursts, $n_io_bursts ),
+			'processo' 			=> new Processo( $ultimo_id, $bursts ),
 			'cpu_burst_ant'		=> 0,
 			'tempo_espera'		=> 0
 		];
@@ -312,7 +312,7 @@ class Sistema {
 		}
 
 	}
-
+	
 	/**
 	 * Simula o processador rodando o processo
 	 *
@@ -332,7 +332,7 @@ class Sistema {
 			$processo->incrementa_time_in_cpu();
 			$processo->decrementa_n_cpu_bursts();
 		}
-
+		
 		$processo->set_quantum( $quantum - $quantum_i );
 		return $quantum_i;
 
